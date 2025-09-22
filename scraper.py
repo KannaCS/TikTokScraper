@@ -15,9 +15,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import re
 import sys
 import subprocess
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, List
 
@@ -367,6 +369,252 @@ def search_videos(query: str, cookie: Optional[str] = None, count: int = 5, time
     return []
 
 
+def get_trending_keywords() -> List[str]:
+    """Generate trending keywords based on current trends, seasons, and popular topics."""
+    # Current trends and viral topics (updated regularly)
+    viral_trends = [
+        "viral", "trending", "fyp", "foryou", "challenge", "dance", "funny", "comedy",
+        "prank", "reaction", "storytime", "tutorial", "hack", "tips", "diy",
+        "cooking", "recipe", "food", "travel", "adventure", "workout", "fitness",
+        "makeup", "skincare", "fashion", "outfit", "style", "music", "singing",
+        "art", "drawing", "painting", "craft", "gaming", "tech", "review",
+        "unboxing", "haul", "transformation", "beforeafter", "satisfying",
+        "asmr", "relax", "motivation", "inspiration", "life", "daily", "vlog"
+    ]
+    
+    # Popular creators and topics
+    popular_topics = [
+        "mrbeast", "charlidamelio", "addisonrae", "zach", "noah", "bella",
+        "tiktokdance", "duet", "collab", "trend", "viral", "famous", "celebrity",
+        "influencer", "creator", "content", "entertainment", "show", "series"
+    ]
+    
+    # Seasonal and time-based keywords
+    import datetime
+    now = datetime.datetime.now()
+    month = now.month
+    
+    seasonal_keywords = []
+    if month in [12, 1, 2]:  # Winter
+        seasonal_keywords.extend(["winter", "snow", "holiday", "christmas", "newyear", "cozy"])
+    elif month in [3, 4, 5]:  # Spring
+        seasonal_keywords.extend(["spring", "flowers", "easter", "fresh", "nature", "garden"])
+    elif month in [6, 7, 8]:  # Summer
+        seasonal_keywords.extend(["summer", "beach", "vacation", "hot", "sun", "pool", "travel"])
+    else:  # Fall
+        seasonal_keywords.extend(["fall", "autumn", "halloween", "cozy", "pumpkin", "leaves"])
+    
+    # Combine all keywords
+    all_keywords = viral_trends + popular_topics + seasonal_keywords
+    
+    # Return a shuffled selection
+    random.shuffle(all_keywords)
+    return all_keywords
+
+
+def intelligent_auto_search(cookie: Optional[str] = None, count: int = 5, max_attempts: int = 50, timeout: int = 15) -> List[str]:
+    """Intelligently search for trending videos using multiple strategies.
+    
+    Optimized for large batch searches (100+ videos) with smart batching and progress tracking.
+    """
+    video_urls = []
+    attempts = 0
+    
+    # Calculate batch size and delay based on requested count
+    if count <= 10:
+        batch_size = 5
+        delay = 0.5
+        max_per_search = 10
+    elif count <= 50:
+        batch_size = 10
+        delay = 0.3
+        max_per_search = 15
+    else:  # Large batch (50+)
+        batch_size = 20
+        delay = 0.2
+        max_per_search = 30
+    
+    print(f"Starting intelligent search for {count} videos (batch size: {batch_size})...", file=sys.stderr)
+    
+    # Strategy 1: Use trending keywords with larger batches
+    trending_keywords = get_trending_keywords()
+    
+    for keyword in trending_keywords[:max_attempts]:
+        if len(video_urls) >= count:
+            break
+            
+        attempts += 1
+        remaining = count - len(video_urls)
+        search_count = min(batch_size, remaining, max_per_search)
+        
+        print(f"[{len(video_urls)}/{count}] Searching '{keyword}' (batch {search_count})...", file=sys.stderr)
+        
+        try:
+            # Search for videos with this keyword
+            results = search_videos(keyword, cookie=cookie, count=search_count, timeout=timeout)
+            
+            if results:
+                video_urls.extend(results)
+                print(f"✓ Found {len(results)} video(s) for '{keyword}' | Total: {len(video_urls)}/{count}", file=sys.stderr)
+                
+                # Dynamic delay based on batch size
+                time.sleep(delay)
+            else:
+                print(f"✗ No videos found for '{keyword}'", file=sys.stderr)
+                
+        except Exception as e:
+            print(f"✗ Error searching for '{keyword}': {e}", file=sys.stderr)
+            continue
+    
+    # Strategy 2: Enhanced combination search for large batches
+    if len(video_urls) < count and attempts < max_attempts:
+        combination_keywords = [
+            "viral dance", "funny prank", "cooking hack", "makeup tutorial",
+            "travel vlog", "workout routine", "art challenge", "music cover",
+            "reaction video", "storytime funny", "diy craft", "fashion haul",
+            "gaming moments", "pet funny", "satisfying video", "life hack",
+            "trending meme", "viral trend", "dance challenge", "funny moment",
+            "epic fail", "amazing talent", "cute animals", "food review",
+            "travel adventure", "fitness motivation", "beauty tips", "tech review",
+            "comedy skit", "music remix", "art tutorial", "gaming highlight",
+            "lifestyle vlog", "fashion style", "cooking recipe", "workout tips"
+        ]
+        
+        random.shuffle(combination_keywords)
+        
+        print(f"[{len(video_urls)}/{count}] Trying combination keywords...", file=sys.stderr)
+        
+        for combo in combination_keywords:
+            if len(video_urls) >= count or attempts >= max_attempts:
+                break
+                
+            attempts += 1
+            remaining = count - len(video_urls)
+            search_count = min(batch_size, remaining, max_per_search)
+            
+            print(f"[{len(video_urls)}/{count}] Searching '{combo}' (batch {search_count})...", file=sys.stderr)
+            
+            try:
+                results = search_videos(combo, cookie=cookie, count=search_count, timeout=timeout)
+                if results:
+                    video_urls.extend(results)
+                    print(f"✓ Found {len(results)} video(s) for '{combo}' | Total: {len(video_urls)}/{count}", file=sys.stderr)
+                    time.sleep(delay)
+            except Exception:
+                continue
+    
+    # Strategy 3: Fallback to single-word high-volume searches for large batches
+    if len(video_urls) < count and count > 20:
+        high_volume_keywords = [
+            "funny", "viral", "dance", "music", "food", "travel", "art", "gaming",
+            "comedy", "tutorial", "hack", "diy", "makeup", "fashion", "workout",
+            "pets", "nature", "tech", "review", "vlog", "challenge", "trend"
+        ]
+        
+        random.shuffle(high_volume_keywords)
+        print(f"[{len(video_urls)}/{count}] Using high-volume keywords for remaining videos...", file=sys.stderr)
+        
+        for keyword in high_volume_keywords:
+            if len(video_urls) >= count:
+                break
+                
+            remaining = count - len(video_urls)
+            search_count = min(batch_size * 2, remaining, max_per_search)  # Larger batches for high-volume
+            
+            print(f"[{len(video_urls)}/{count}] High-volume search '{keyword}' (batch {search_count})...", file=sys.stderr)
+            
+            try:
+                results = search_videos(keyword, cookie=cookie, count=search_count, timeout=timeout)
+                if results:
+                    video_urls.extend(results)
+                    print(f"✓ Found {len(results)} video(s) for '{keyword}' | Total: {len(video_urls)}/{count}", file=sys.stderr)
+                    time.sleep(delay * 0.5)  # Faster for high-volume
+            except Exception:
+                continue
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_urls = []
+    for url in video_urls:
+        if url not in seen:
+            seen.add(url)
+            unique_urls.append(url)
+    
+    final_count = len(unique_urls[:count])
+    print(f"\n🎯 Search complete! Found {final_count}/{count} unique videos ({attempts} searches)", file=sys.stderr)
+    
+    return unique_urls[:count]
+
+
+def smart_hashtag_search(cookie: Optional[str] = None, count: int = 5, timeout: int = 15) -> List[str]:
+    """Search for videos using popular hashtag combinations.
+    
+    Optimized for large batch searches with expanded hashtag list.
+    """
+    # Expanded hashtag list for better coverage
+    hashtag_searches = [
+        "#fyp", "#viral", "#trending", "#foryou", "#dance", "#funny", "#comedy",
+        "#prank", "#challenge", "#tutorial", "#hack", "#diy", "#cooking", "#food",
+        "#travel", "#workout", "#makeup", "#fashion", "#music", "#art", "#gaming",
+        "#satisfying", "#asmr", "#motivation", "#life", "#daily", "#vlog", "#pets",
+        "#nature", "#photography", "#style", "#beauty", "#health", "#fitness",
+        "#meme", "#trend", "#duet", "#collab", "#reaction", "#storytime", "#tips",
+        "#review", "#unboxing", "#haul", "#transformation", "#beforeafter", "#fail",
+        "#win", "#talent", "#skill", "#amazing", "#cute", "#love", "#fun", "#cool",
+        "#awesome", "#epic", "#wow", "#omg", "#lol", "#mood", "#vibes", "#aesthetic"
+    ]
+    
+    # Calculate batch parameters
+    if count <= 10:
+        batch_size = 3
+        delay = 0.3
+    elif count <= 50:
+        batch_size = 8
+        delay = 0.2
+    else:  # Large batch
+        batch_size = 15
+        delay = 0.1
+    
+    print(f"Starting hashtag search for {count} videos...", file=sys.stderr)
+    
+    random.shuffle(hashtag_searches)
+    video_urls = []
+    
+    for i, hashtag in enumerate(hashtag_searches):
+        if len(video_urls) >= count:
+            break
+            
+        remaining = count - len(video_urls)
+        search_count = min(batch_size, remaining)
+        
+        print(f"[{len(video_urls)}/{count}] Searching '{hashtag}' (batch {search_count})...", file=sys.stderr)
+        
+        try:
+            results = search_videos(hashtag, cookie=cookie, count=search_count, timeout=timeout)
+            if results:
+                video_urls.extend(results)
+                print(f"✓ Found {len(results)} video(s) for '{hashtag}' | Total: {len(video_urls)}/{count}", file=sys.stderr)
+                time.sleep(delay)
+            else:
+                print(f"✗ No videos found for '{hashtag}'", file=sys.stderr)
+        except Exception as e:
+            print(f"✗ Error with '{hashtag}': {e}", file=sys.stderr)
+            continue
+    
+    # Remove duplicates
+    seen = set()
+    unique_urls = []
+    for url in video_urls:
+        if url not in seen:
+            seen.add(url)
+            unique_urls.append(url)
+    
+    final_count = len(unique_urls[:count])
+    print(f"\n🏷️ Hashtag search complete! Found {final_count}/{count} unique videos", file=sys.stderr)
+    
+    return unique_urls[:count]
+
+
 def resolve_latest_video_url(username: str, cookie: Optional[str] = None, timeout: int = 15, save_html_path: Optional[str] = None, save_json_path: Optional[str] = None) -> str:
     """Resolve the latest video URL for a given TikTok username by scraping their profile page.
 
@@ -590,6 +838,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--latest-from", dest="latest_from", help="Username to auto-resolve latest video URL (e.g., @user or user)", default=None)
     parser.add_argument("--clipboard", action="store_true", help="Auto-detect TikTok URL from clipboard")
     parser.add_argument("--trending", type=int, metavar="N", help="Discover N trending videos (default: 1)", default=None)
+    parser.add_argument("--auto-search", type=int, metavar="N", help="Intelligently discover N videos using trending keywords (supports large batches like 100+)", default=None)
+    parser.add_argument("--hashtag-search", type=int, metavar="N", help="Discover N videos using popular hashtags (supports large batches like 100+)", default=None)
     parser.add_argument("--search", dest="search_query", help="Search for videos by keyword", default=None)
     parser.add_argument("--search-count", type=int, default=1, help="Number of search results to process (default: 1)")
     parser.add_argument("--cookie", dest="cookie", help="Cookie header string", default=None)
@@ -635,7 +885,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             print("No TikTok URL found in clipboard", file=sys.stderr)
             return 1
     
-    # 4. Trending videos
+    # 4. Trending videos (legacy)
     elif args.trending is not None:
         count = args.trending if args.trending > 0 else 1
         trending_urls = discover_trending_videos(cookie=cookie, count=count)
@@ -646,7 +896,29 @@ def main(argv: Optional[list[str]] = None) -> int:
             print("No trending videos found", file=sys.stderr)
             return 1
     
-    # 5. Search videos
+    # 5. Intelligent auto-search
+    elif args.auto_search is not None:
+        count = args.auto_search if args.auto_search > 0 else 1
+        auto_urls = intelligent_auto_search(cookie=cookie, count=count)
+        if auto_urls:
+            target_urls = auto_urls
+            print(f"Auto-discovered {len(auto_urls)} video(s) using intelligent search", file=sys.stderr)
+        else:
+            print("No videos found through auto-search", file=sys.stderr)
+            return 1
+    
+    # 6. Hashtag-based search
+    elif args.hashtag_search is not None:
+        count = args.hashtag_search if args.hashtag_search > 0 else 1
+        hashtag_urls = smart_hashtag_search(cookie=cookie, count=count)
+        if hashtag_urls:
+            target_urls = hashtag_urls
+            print(f"Found {len(hashtag_urls)} video(s) using hashtag search", file=sys.stderr)
+        else:
+            print("No videos found through hashtag search", file=sys.stderr)
+            return 1
+    
+    # 7. Manual search videos
     elif args.search_query:
         search_urls = search_videos(args.search_query, cookie=cookie, count=args.search_count)
         if search_urls:
@@ -659,37 +931,79 @@ def main(argv: Optional[list[str]] = None) -> int:
     # No discovery method specified
     else:
         parser.print_usage(sys.stderr)
-        print("error: provide a video URL or use a discovery option (--latest-from, --clipboard, --trending, --search)", file=sys.stderr)
+        print("error: provide a video URL or use a discovery option (--latest-from, --clipboard, --trending, --auto-search, --hashtag-search, --search)", file=sys.stderr)
         return 2
     
-    # Process all discovered URLs
+    # Process all discovered URLs with progress tracking
     results = []
+    total_urls = len(target_urls)
+    
+    print(f"\n🚀 Starting to scrape {total_urls} video(s)...", file=sys.stderr)
+    
     for i, target_url in enumerate(target_urls):
         try:
-            if len(target_urls) > 1:
-                print(f"\n--- Video {i+1}/{len(target_urls)}: {target_url} ---", file=sys.stderr)
+            # Progress indicator
+            progress = f"[{i+1}/{total_urls}]"
+            if total_urls > 10:
+                percentage = int((i+1) / total_urls * 100)
+                progress += f" ({percentage}%)"
+            
+            print(f"\n{progress} Scraping: {target_url}", file=sys.stderr)
             
             stats = scrape_tiktok_video(target_url, cookie=cookie, save_html_path=args.save_html_video)
             result = stats.as_dict()
             result["url"] = target_url
             results.append(result)
             
+            # Show quick stats for large batches
+            if total_urls > 5:
+                print(f"✓ Success | Views: {stats.views:,} | Likes: {stats.likes:,} | Hashtags: {len(stats.hashtags or [])}", file=sys.stderr)
+            
+            # Small delay for large batches to avoid overwhelming
+            if total_urls > 20 and i < total_urls - 1:
+                time.sleep(0.1)
+                
         except requests.HTTPError as e:
-            print(f"HTTP error for {target_url}: {e}", file=sys.stderr)
+            print(f"✗ HTTP error for {target_url}: {e}", file=sys.stderr)
             continue
         except Exception as e:
-            print(f"Error for {target_url}: {e}", file=sys.stderr)
+            print(f"✗ Error for {target_url}: {e}", file=sys.stderr)
             continue
     
     if not results:
-        print("No videos could be scraped", file=sys.stderr)
+        print("\n❌ No videos could be scraped", file=sys.stderr)
         return 1
     
-    # Output results
-    if len(results) == 1:
-        print(json.dumps(results[0], ensure_ascii=False, indent=2))
-    else:
-        print(json.dumps(results, ensure_ascii=False, indent=2))
+    # Summary statistics
+    success_rate = len(results) / total_urls * 100
+    total_views = sum(r.get('views', 0) or 0 for r in results)
+    total_likes = sum(r.get('likes', 0) or 0 for r in results)
+    
+    print(f"\n📊 Scraping Summary:", file=sys.stderr)
+    print(f"   ✓ Successfully scraped: {len(results)}/{total_urls} videos ({success_rate:.1f}%)", file=sys.stderr)
+    print(f"   👀 Total views: {total_views:,}", file=sys.stderr)
+    print(f"   ❤️ Total likes: {total_likes:,}", file=sys.stderr)
+    print(f"   📝 Outputting JSON results...\n", file=sys.stderr)
+    
+    # Output results with proper encoding handling
+    try:
+        if len(results) == 1:
+            output = json.dumps(results[0], ensure_ascii=False, indent=2)
+        else:
+            output = json.dumps(results, ensure_ascii=False, indent=2)
+        
+        # Handle encoding for Windows console
+        try:
+            print(output)
+        except UnicodeEncodeError:
+            # Fallback: use ASCII encoding with Unicode escape sequences
+            output_ascii = json.dumps(results if len(results) > 1 else results[0], ensure_ascii=True, indent=2)
+            print(output_ascii)
+            print("\n⚠️  Note: Some Unicode characters were escaped due to console encoding limitations.", file=sys.stderr)
+            print("   For full Unicode support, redirect output to a file: > results.json", file=sys.stderr)
+    except Exception as e:
+        print(f"Error outputting results: {e}", file=sys.stderr)
+        return 1
     
     return 0
 

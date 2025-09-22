@@ -1,0 +1,24 @@
+Starting hashtag search for 3 videos...
+[0/3] Searching '#beforeafter' (batch 3)...
+\u2713 Found 3 video(s) for '#beforeafter' | Total: 3/3
+
+\U0001f3f7\ufe0f Hashtag search complete! Found 3/3 unique videos
+Found 3 video(s) using hashtag search
+
+\U0001f680 Starting to scrape 3 video(s)...
+
+[1/3] Scraping: https://www.tiktok.com/@user/video/7493934094523354373
+
+[2/3] Scraping: https://www.tiktok.com/@user/video/7386619794696490246
+
+[3/3] Scraping: https://www.tiktok.com/@user/video/7509766753040256261
+
+\U0001f4ca Scraping Summary:
+   \u2713 Successfully scraped: 3/3 videos (100.0%)
+   \U0001f440 Total views: 9,783,700
+   \u2764\ufe0f Total likes: 383,935
+   \U0001f4dd Outputting JSON results...
+
+
+\u26a0\ufe0f  Note: Some Unicode characters were escaped due to console encoding limitations.
+   For full Unicode support, redirect output to a file: > results.json

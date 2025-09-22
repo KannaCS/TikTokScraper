@@ -36,11 +36,38 @@ python scraper.py --latest-from @someuser
 # Auto-detect from clipboard (copy a TikTok URL first)
 python scraper.py --clipboard
 
-# Discover trending videos
-python scraper.py --trending 3  # Get 3 trending videos
+# Intelligent auto-search (NEW!) - Discovers trending content automatically
+python scraper.py --auto-search 5    # Get 5 videos using smart keyword search
+python scraper.py --auto-search 100  # Large batch: Get 100 videos efficiently!
 
-# Search for videos by keyword
+# Hashtag-based discovery (NEW!) - Uses popular hashtags
+python scraper.py --hashtag-search 3   # Get 3 videos from trending hashtags
+python scraper.py --hashtag-search 50  # Large batch: Get 50 videos from hashtags
+
+# Manual search for videos by keyword
 python scraper.py --search "mrbeast" --search-count 2
+
+# Legacy trending discovery (may not work in all regions)
+python scraper.py --trending 3  # Get 3 trending videos
+```
+
+**Large Batch Support**: Both `--auto-search` and `--hashtag-search` are optimized for large batches (100+ videos) with:
+- Smart batching and progress tracking
+- Automatic rate limiting
+- Duplicate removal
+- Success rate statistics
+- Unicode encoding fixes for Windows
+
+**Easy Batch Processing**:
+```bash
+# PowerShell script (recommended for Windows)
+.\scrape_large.ps1 -Count 100 -Method "auto-search"
+
+# Batch file
+batch_scrape.bat 100 auto-search
+
+# Direct command with proper encoding
+python scraper.py --auto-search 100 --cookie-file cookies.txt > results.json
 ```
 
 **Note**: Some discovery methods may be blocked in certain regions. Direct URLs are most reliable.
@@ -91,7 +118,10 @@ Where `cookies.txt` contains a single line representing the Cookie header value.
 ## Programmatic Usage
 
 ```python
-from scraper import scrape_tiktok_video, get_clipboard_url, discover_trending_videos, search_videos
+from scraper import (
+    scrape_tiktok_video, get_clipboard_url, search_videos,
+    intelligent_auto_search, smart_hashtag_search
+)
 
 # Direct scraping
 stats = scrape_tiktok_video("https://www.tiktok.com/@user/video/123...")
@@ -99,15 +129,18 @@ print(stats.as_dict())
 
 # Auto-discovery functions
 clipboard_url = get_clipboard_url()  # Get URL from clipboard
-trending_urls = discover_trending_videos(cookie="...", count=5)  # Get trending videos
-search_urls = search_videos("mrbeast", cookie="...", count=3)  # Search videos
+auto_urls = intelligent_auto_search(cookie="...", count=5)  # Smart trending search
+hashtag_urls = smart_hashtag_search(cookie="...", count=3)  # Popular hashtag search
+search_urls = search_videos("mrbeast", cookie="...", count=3)  # Manual search
 
-# Process multiple URLs
-for url in trending_urls:
+# Process multiple URLs from intelligent search
+for url in auto_urls:
     try:
         stats = scrape_tiktok_video(url, cookie="tt_sessionid=...;")
         print(f"Video: {url}")
+        print(f"Caption: {stats.caption}")
         print(f"Views: {stats.views}, Likes: {stats.likes}")
+        print(f"Hashtags: {stats.hashtags}")
     except Exception as e:
         print(f"Failed to scrape {url}: {e}")
 ```
@@ -118,4 +151,7 @@ for url in trending_urls:
 - If you get `HTTP 403/404/5xx` errors, the content may be blocked, removed, private, or you may need to wait and try later.
 - When using `--latest-from`, if the profile is empty/private or region-blocked, the script may not be able to determine the latest video without cookies.
 - **Updated 2025**: The scraper now supports TikTok's latest `__UNIVERSAL_DATA_FOR_REHYDRATION__` structure for video pages.
+- **Large Batch Optimization**: Efficiently handles 100+ video searches with smart batching, progress tracking, and statistics.
+- **Unicode Support**: Fixed encoding issues for emojis and international characters in captions.
+- **Batch Processing Tools**: Includes PowerShell script (`scrape_large.ps1`) and batch file (`batch_scrape.bat`) for easy large-scale scraping.
 - If automatic username resolution fails, copy a video URL directly from the browser instead.
